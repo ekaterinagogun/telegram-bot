@@ -18,7 +18,7 @@ dp = Dispatcher(bot)
 main_keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
 main_keyboard.row(
     KeyboardButton("📘5 простых шагов к стройности"),
-    KeyboardButton("📗Белковая шпаргалка - продукты, нормы, симптомы дефицита"),
+    KeyboardButton("📗Белковая шпаргалка"),
     KeyboardButton("📕Питание для здоровой, чистой и сияющей кожи")
 )
 main_keyboard.add(KeyboardButton("💬 Записаться на консультацию"))
@@ -60,7 +60,7 @@ async def send_steps(message: types.Message):
     with open("files/5 простых шагов к стройности.pdf", "rb") as f:
         await message.answer_document(f, caption="📘Вот ваш файл!")
 
-@dp.message_handler(lambda message: message.text == "📗Белковая шпаргалка - продукты, нормы, симптомы дефицита")
+@dp.message_handler(lambda message: message.text == "📗Белковая шпаргалка")
 async def send_protein(message: types.Message):
     with open("files/Белковая шпаргалка.pdf", "rb") as f:
         await message.answer_document(f, caption="📗Вот ваш файл!")
@@ -90,3 +90,4 @@ async def run_fake_server():
 if __name__ == "__main__":
     asyncio.get_event_loop().create_task(run_fake_server())
     executor.start_polling(dp, skip_updates=True)
+
