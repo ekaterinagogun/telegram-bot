@@ -1,27 +1,19 @@
 import logging
 from aiogram import Bot, Dispatcher, executor, types
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiohttp import web
 import asyncio
+import os
 
 # ====== НАСТРОЙКИ ======
 TOKEN = "8413313287:AAF1KLyKH7hl7W9gkokqWeE5RpCQQw0eZy8"
-CHANNEL_USERNAME = "@nutritionpro"  # твой канал
-CONSULT_LINK = "https://t.me/nutri_wayne"  # ссылка для записи
+CHANNEL_USERNAME = "@nutritionpro"
+CONSULT_LINK = "https://t.me/nutri_wayne"
 
 # ====== ЛОГИ ======
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=TOKEN, parse_mode="HTML")
 dp = Dispatcher(bot)
-
-# ====== КЛАВИАТУРЫ ======
-main_keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
-main_keyboard.row(
-    KeyboardButton("📘5 простых шагов к стройности"),
-    KeyboardButton("📗Белковая шпаргалка"),
-    KeyboardButton("📕Питание для здоровой, чистой и сияющей кожи")
-)
-main_keyboard.add(KeyboardButton("💬 Записаться на консультацию"))
 
 # ====== СТАРТ ======
 @dp.message_handler(commands=['start'])
@@ -45,63 +37,77 @@ async def check_subscription(callback_query: types.CallbackQuery):
     try:
         member = await bot.get_chat_member(CHANNEL_USERNAME, user_id)
         if member.status in ['member', 'administrator', 'creator']:
-            await callback_query.message.answer(
-                "🎉 Отлично! Вы подписаны.\nТеперь выберите, какой материал хотите получить 👇",
-                reply_markup=main_keyboard
-            )
-        else:
-            await callback_query.answer("Вы ещё не подписались 😔", show_alert=True)
-    except Exception:
-        await callback_query.answer("Не удалось проверить подписку. Убедитесь, что канал публичный.", show_alert=True)
+            await callback_query.message.answer("🎉 Отлично! Вы подписаны. Вот мои полезные материалы 👇")
 
-# ====== ОТПРАВКА ВЫБОРА МАТЕРИАЛОВ ======
-@dp.callback_query_handler(lambda c: c.data == "check_sub")
-async def check_subscription(callback_query: types.CallbackQuery):
-    user_id = callback_query.from_user.id
-    try:
-        member = await bot.get_chat_member(CHANNEL_USERNAME, user_id)
-        if member.status in ['member', 'administrator', 'creator']:
-            # Inline-кнопки для выбора файлов
-            materials_keyboard = InlineKeyboardMarkup(row_width=1)
-            materials_keyboard.add(
-                InlineKeyboardButton("📘 5 простых шагов к стройности", callback_data="file_steps"),
-                InlineKeyboardButton("📗 Белковая шпаргалка", callback_data="file_protein"),
-                InlineKeyboardButton("📕 Питание для сияющей кожи", callback_data="file_skin"),
+            # 1️⃣ 5 шагов к стройности
+            steps_kb = InlineKeyboardMarkup().add(
+                InlineKeyboardButton("📥 Скачать PDF", callback_data="file_steps")
+            )
+            await bot.send_photo(
+                user_id,
+                photo="https://i.ibb.co/vYbJtLQ/steps.jpg",  # замени на свою обложку
+                caption="📘 <b>5 простых шагов к стройности</b>\n✨ Пошаговый план для комфортного снижения веса.",
+                reply_markup=steps_kb
+            )
+
+            # 2️⃣ Белковая шпаргалка
+            protein_kb = InlineKeyboardMarkup().add(
+                InlineKeyboardButton("📥 Скачать PDF", callback_data="file_protein")
+            )
+            await bot.send_photo(
+                user_id,
+                photo="https://i.ibb.co/yVbtpF5/protein.jpg",
+                caption="📗 <b>Белковая шпаргалка</b>\n🥦 Продукты, нормы и симптомы дефицита.",
+                reply_markup=protein_kb
+            )
+
+            # 3️⃣ Питание для здоровой и сияющей кожи
+            skin_kb = InlineKeyboardMarkup().add(
+                InlineKeyboardButton("📥 Скачать PDF", callback_data="file_skin")
+            )
+            await bot.send_photo(
+                user_id,
+                photo="https://i.ibb.co/tZnH6GH/skin.jpg",
+                caption="📕 <b>Питание для здоровой, чистой и сияющей кожи</b>\n💧 Как питание влияет на чистоту и сияние кожи.",
+                reply_markup=skin_kb
+            )
+
+            # 💬 Консультация
+            consult_kb = InlineKeyboardMarkup().add(
                 InlineKeyboardButton("💬 Записаться на консультацию", url=CONSULT_LINK)
             )
+            await bot.send_message(user_id, "🗓 Готова помочь лично!", reply_markup=consult_kb)
 
-            await callback_query.message.answer(
-                "🎉 Отлично! Вы подписаны.\nТеперь выберите, какой материал хотите получить 👇",
-                reply_markup=materials_keyboard
-            )
         else:
             await callback_query.answer("Вы ещё не подписались 😔", show_alert=True)
-    except Exception:
+    except Exception as e:
+        logging.error(e)
         await callback_query.answer("Не удалось проверить подписку. Убедитесь, что канал публичный.", show_alert=True)
 
-# ====== ОТДАЧА ФАЙЛОВ ПО INLINE-КНОПКАМ ======
+# ====== INLINE-ОБРАБОТЧИКИ ДЛЯ ФАЙЛОВ ======
 @dp.callback_query_handler(lambda c: c.data == "file_steps")
 async def send_steps(callback_query: types.CallbackQuery):
-    with open("files/5 простых шагов к стройности.pdf", "rb") as f:
-        await bot.send_document(callback_query.from_user.id, f, caption="📘 Вот ваш файл!")
+    try:
+        with open("files/5 простых шагов к стройности.pdf", "rb") as f:
+            await bot.send_document(callback_query.from_user.id, f, caption="📘 5 простых шагов к стройности")
+    except FileNotFoundError:
+        await callback_query.answer("Файл не найден на сервере 😔", show_alert=True)
 
 @dp.callback_query_handler(lambda c: c.data == "file_protein")
 async def send_protein(callback_query: types.CallbackQuery):
-    with open("files/Белковая шпаргалка.pdf", "rb") as f:
-        await bot.send_document(callback_query.from_user.id, f, caption="📗 Вот ваш файл!")
+    try:
+        with open("files/Белковая шпаргалка.pdf", "rb") as f:
+            await bot.send_document(callback_query.from_user.id, f, caption="📗 Белковая шпаргалка")
+    except FileNotFoundError:
+        await callback_query.answer("Файл не найден на сервере 😔", show_alert=True)
 
 @dp.callback_query_handler(lambda c: c.data == "file_skin")
 async def send_skin(callback_query: types.CallbackQuery):
-    with open("files/Питание для здоровой, чистой и сияющей кожи.pdf", "rb") as f:
-        await bot.send_document(callback_query.from_user.id, f, caption="📕 Вот ваш файл!")
-
-# ====== КНОПКА ЗАПИСИ ======
-@dp.message_handler(lambda message: message.text == "💬 Записаться на консультацию")
-async def consultation_handler(message: types.Message):
-    await message.answer(
-        f"🗓 Чтобы записаться на консультацию — напишите мне лично:\n👉 <a href='{CONSULT_LINK}'>Перейти в чат</a>",
-        disable_web_page_preview=True
-    )
+    try:
+        with open("files/Питание для здоровой, чистой и сияющей кожи.pdf", "rb") as f:
+            await bot.send_document(callback_query.from_user.id, f, caption="📕 Питание для здоровой и сияющей кожи")
+    except FileNotFoundError:
+        await callback_query.answer("Файл не найден на сервере 😔", show_alert=True)
 
 # ====== FAKE SERVER ДЛЯ RENDER ======
 async def run_fake_server():
@@ -115,5 +121,3 @@ async def run_fake_server():
 if __name__ == "__main__":
     asyncio.get_event_loop().create_task(run_fake_server())
     executor.start_polling(dp, skip_updates=True)
-
-
