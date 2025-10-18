@@ -1,6 +1,5 @@
 import logging
 import os
-import asyncio
 from aiogram import Bot, Dispatcher, types
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiohttp import web
@@ -14,12 +13,9 @@ WEBHOOK_URL = f"https://telegram-bot-9mod.onrender.com{WEBHOOK_PATH}"
 
 # ====== ЛОГИ ======
 logging.basicConfig(level=logging.INFO)
+
 bot = Bot(token=TOKEN, parse_mode="HTML")
 dp = Dispatcher(bot)
-
-# Важно: установить контекст
-Bot.set_current(bot)
-Dispatcher.set_current(dp)
 
 # ====== СТАРТ ======
 @dp.message_handler(commands=["start"])
@@ -96,7 +92,10 @@ async def on_shutdown(app):
     await bot.session.close()
     logging.info("Вебхук удалён. Бот остановлен.")
 
+# ====== ОБРАБОТЧИК ВЕБХУКА ======
 async def handle_webhook(request):
+    Bot.set_current(bot)
+    Dispatcher.set_current(dp)
     update = types.Update(**await request.json())
     await dp.process_update(update)
     return web.Response()
