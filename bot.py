@@ -1,7 +1,7 @@
 import logging
 import os
 import asyncio
-from aiogram import Bot, Dispatcher, executor, types
+from aiogram import Bot, Dispatcher, types
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiohttp import web
 
@@ -9,6 +9,11 @@ from aiohttp import web
 TOKEN = "8413313287:AAF1KLyKH7hl7W9gkokqWeE5RpCQQw0eZy8"
 CHANNEL_USERNAME = "@nutritionpro"
 CONSULT_LINK = "https://t.me/nutri_wayne"
+
+# 🔹 ВАЖНО: замени это на адрес своего Render-приложения!
+WEBHOOK_HOST = "https://telegram-bot-9mod.onrender.com"
+WEBHOOK_PATH = f"/webhook/{TOKEN}"
+WEBHOOK_URL = f"{WEBHOOK_HOST}{WEBHOOK_PATH}"
 
 # ====== ЛОГИРОВАНИЕ ======
 logging.basicConfig(level=logging.INFO)
@@ -79,15 +84,28 @@ async def send_file(callback_query: types.CallbackQuery):
         logging.error(f"Ошибка при отправке файла: {e}")
         await callback_query.answer("Ошибка при отправке файла 😢", show_alert=True)
 
-# ====== FAKE SERVER (для Render) ======
-async def run_fake_server():
-    app = web.Application()
-    app.router.add_get('/', lambda request: web.Response(text="Bot is running"))
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, '0.0.0.0', 10000)
-    await site.start()
+# ====== WEBHOOK ======
+async def on_startup(app):
+    await bot.set_webhook(WEBHOOK_URL)
+    logging.info(f"Webhook установлен: {WEBHOOK_URL}")
+
+async def on_shutdown(app):
+    logging.warning("Выключаем вебхук...")
+    await bot.delete_webhook()
+    logging.info("Вебхук удалён. Бот остановлен.")
+
+async def handle_webhook(request):
+    update = await request.json()
+    telegram_update = types.Update(**update)
+    await dp.process_update(telegram_update)
+    return web.Response(text="OK")
+
+# ====== ЗАПУСК СЕРВЕРА ======
+app = web.Application()
+app.router.add_post(WEBHOOK_PATH, handle_webhook)
+app.router.add_get("/", lambda request: web.Response(text="Bot is running ✅"))
+app.on_startup.append(on_startup)
+app.on_shutdown.append(on_shutdown)
 
 if __name__ == "__main__":
-    asyncio.get_event_loop().create_task(run_fake_server())
-    executor.start_polling(dp, skip_updates=True)
+    web.run_app(app, host="0.0.0.0", port=10000)
