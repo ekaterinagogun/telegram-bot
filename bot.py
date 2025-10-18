@@ -54,21 +54,46 @@ async def check_subscription(callback_query: types.CallbackQuery):
     except Exception:
         await callback_query.answer("Не удалось проверить подписку. Убедитесь, что канал публичный.", show_alert=True)
 
-# ====== ОБРАБОТЧИКИ ФАЙЛОВ ======
-@dp.message_handler(lambda message: message.text == "📘5 простых шагов к стройности")
-async def send_steps(message: types.Message):
+# ====== ОТПРАВКА ВЫБОРА МАТЕРИАЛОВ ======
+@dp.callback_query_handler(lambda c: c.data == "check_sub")
+async def check_subscription(callback_query: types.CallbackQuery):
+    user_id = callback_query.from_user.id
+    try:
+        member = await bot.get_chat_member(CHANNEL_USERNAME, user_id)
+        if member.status in ['member', 'administrator', 'creator']:
+            # Inline-кнопки для выбора файлов
+            materials_keyboard = InlineKeyboardMarkup(row_width=1)
+            materials_keyboard.add(
+                InlineKeyboardButton("📘 5 простых шагов к стройности", callback_data="file_steps"),
+                InlineKeyboardButton("📗 Белковая шпаргалка", callback_data="file_protein"),
+                InlineKeyboardButton("📕 Питание для сияющей кожи", callback_data="file_skin"),
+                InlineKeyboardButton("💬 Записаться на консультацию", url=CONSULT_LINK)
+            )
+
+            await callback_query.message.answer(
+                "🎉 Отлично! Вы подписаны.\nТеперь выберите, какой материал хотите получить 👇",
+                reply_markup=materials_keyboard
+            )
+        else:
+            await callback_query.answer("Вы ещё не подписались 😔", show_alert=True)
+    except Exception:
+        await callback_query.answer("Не удалось проверить подписку. Убедитесь, что канал публичный.", show_alert=True)
+
+# ====== ОТДАЧА ФАЙЛОВ ПО INLINE-КНОПКАМ ======
+@dp.callback_query_handler(lambda c: c.data == "file_steps")
+async def send_steps(callback_query: types.CallbackQuery):
     with open("files/5 простых шагов к стройности.pdf", "rb") as f:
-        await message.answer_document(f, caption="📘Вот ваш файл!")
+        await bot.send_document(callback_query.from_user.id, f, caption="📘 Вот ваш файл!")
 
-@dp.message_handler(lambda message: message.text == "📗Белковая шпаргалка")
-async def send_protein(message: types.Message):
+@dp.callback_query_handler(lambda c: c.data == "file_protein")
+async def send_protein(callback_query: types.CallbackQuery):
     with open("files/Белковая шпаргалка.pdf", "rb") as f:
-        await message.answer_document(f, caption="📗Вот ваш файл!")
+        await bot.send_document(callback_query.from_user.id, f, caption="📗 Вот ваш файл!")
 
-@dp.message_handler(lambda message: message.text == "📕Питание для здоровой, чистой и сияющей кожи")
-async def send_skin(message: types.Message):
+@dp.callback_query_handler(lambda c: c.data == "file_skin")
+async def send_skin(callback_query: types.CallbackQuery):
     with open("files/Питание для здоровой, чистой и сияющей кожи.pdf", "rb") as f:
-        await message.answer_document(f, caption="📕Вот ваш файл!")
+        await bot.send_document(callback_query.from_user.id, f, caption="📕 Вот ваш файл!")
 
 # ====== КНОПКА ЗАПИСИ ======
 @dp.message_handler(lambda message: message.text == "💬 Записаться на консультацию")
@@ -90,4 +115,5 @@ async def run_fake_server():
 if __name__ == "__main__":
     asyncio.get_event_loop().create_task(run_fake_server())
     executor.start_polling(dp, skip_updates=True)
+
 
