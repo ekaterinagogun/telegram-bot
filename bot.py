@@ -9,32 +9,32 @@ from aiohttp import web
 TOKEN = "8413313287:AAF1KLyKH7hl7W9gkokqWeE5RpCQQw0eZy8"
 CHANNEL_USERNAME = "@nutritionpro"
 CONSULT_LINK = "https://t.me/nutri_wayne"
-WEBHOOK_HOST = "https://telegram-bot-9mod.onrender.com"  # 👈 твой Render URL
 WEBHOOK_PATH = f"/webhook/{TOKEN}"
-WEBHOOK_URL = f"{WEBHOOK_HOST}{WEBHOOK_PATH}"
+WEBHOOK_URL = f"https://telegram-bot-9mod.onrender.com{WEBHOOK_PATH}"
 
 # ====== ЛОГИ ======
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=TOKEN, parse_mode="HTML")
 dp = Dispatcher(bot)
 
+# Важно: установить контекст
+Bot.set_current(bot)
+Dispatcher.set_current(dp)
 
-# ====== /start ======
-@dp.message_handler(commands=['start'])
+# ====== СТАРТ ======
+@dp.message_handler(commands=["start"])
 async def start_handler(message: types.Message):
     text = (
         f"👋 Привет, <b>{message.from_user.first_name}</b>!\n\n"
         "Чтобы получить материалы, подпишитесь на мой канал и нажмите кнопку <b>Проверить подписку</b> 👇"
     )
 
-    buttons = InlineKeyboardMarkup(row_width=1)
-    buttons.add(
-        InlineKeyboardButton("📢 Перейти к каналу", url=f"https://t.me/{CHANNEL_USERNAME.strip('@')}"),
-        InlineKeyboardButton("✅ Проверить подписку", callback_data="check_sub")
+    buttons = InlineKeyboardMarkup().add(
+        InlineKeyboardButton("✅ Проверить подписку", callback_data="check_sub"),
+        InlineKeyboardButton("📢 Перейти к каналу", url=f"https://t.me/{CHANNEL_USERNAME.strip('@')}")
     )
 
     await message.answer(text, reply_markup=buttons)
-
 
 # ====== ПРОВЕРКА ПОДПИСКИ ======
 @dp.callback_query_handler(lambda c: c.data == "check_sub")
@@ -42,69 +42,64 @@ async def check_subscription(callback_query: types.CallbackQuery):
     user_id = callback_query.from_user.id
     try:
         member = await bot.get_chat_member(CHANNEL_USERNAME, user_id)
-        if member.status in ['member', 'administrator', 'creator']:
-            await callback_query.message.answer(
-                "🎉 Отлично! Вы подписаны.\nТеперь выберите, какой материал хотите получить 👇"
-            )
+        if member.status in ["member", "administrator", "creator"]:
+            await callback_query.message.answer("🎉 Отлично! Вы подписаны.\nТеперь выберите материал 👇")
             await send_file_buttons(callback_query.message.chat.id)
         else:
             await callback_query.answer("Вы ещё не подписались 😔", show_alert=True)
     except Exception as e:
-        logging.error(f"Ошибка проверки подписки: {e}")
+        logging.error(e)
         await callback_query.answer("Не удалось проверить подписку. Убедитесь, что канал публичный.", show_alert=True)
 
-
-# ====== КНОПКИ С ФАЙЛАМИ (в чате!) ======
+# ====== КНОПКИ С ФАЙЛАМИ ======
 async def send_file_buttons(chat_id):
-    files_markup = InlineKeyboardMarkup(row_width=1)
-    files_markup.add(
+    markup = InlineKeyboardMarkup(row_width=1)
+    markup.add(
         InlineKeyboardButton("📘 5 простых шагов к стройности", callback_data="file_steps"),
         InlineKeyboardButton("📗 Белковая шпаргалка", callback_data="file_protein"),
         InlineKeyboardButton("📕 Питание для здоровой кожи", callback_data="file_skin"),
         InlineKeyboardButton("💬 Записаться на консультацию", url=CONSULT_LINK)
     )
-    await bot.send_message(chat_id, "👇 Выберите материал:", reply_markup=files_markup)
-
+    await bot.send_message(chat_id, "👇 Выберите материал:", reply_markup=markup)
 
 # ====== ОТПРАВКА ФАЙЛОВ ======
 @dp.callback_query_handler(lambda c: c.data.startswith("file_"))
 async def send_file(callback_query: types.CallbackQuery):
-    files = {
+    mapping = {
         "file_steps": "files/5 простых шагов к стройности.pdf",
         "file_protein": "files/Белковая шпаргалка.pdf",
         "file_skin": "files/Питание для здоровой, чистой и сияющей кожи.pdf"
     }
 
-    path = files.get(callback_query.data)
+    path = mapping.get(callback_query.data)
     if not path or not os.path.exists(path):
-        await callback_query.answer("⚠️ Файл не найден. Проверьте название или путь.", show_alert=True)
+        await callback_query.answer("⚠️ Файл не найден. Проверьте путь.", show_alert=True)
         return
 
     try:
         with open(path, "rb") as f:
             await bot.send_document(callback_query.from_user.id, f)
-        await callback_query.answer("📤 Файл отправлен!", show_alert=False)
+        await callback_query.answer("📤 Файл отправлен!")
     except Exception as e:
         logging.error(f"Ошибка при отправке файла: {e}")
         await callback_query.answer("Ошибка при отправке файла 😢", show_alert=True)
 
-
 # ====== WEBHOOK ======
 async def on_startup(app):
+    logging.warning("Устанавливаем вебхук...")
     await bot.set_webhook(WEBHOOK_URL)
     logging.info(f"Webhook установлен: {WEBHOOK_URL}")
 
 async def on_shutdown(app):
     logging.warning("Выключаем вебхук...")
     await bot.delete_webhook()
+    await bot.session.close()
     logging.info("Вебхук удалён. Бот остановлен.")
 
 async def handle_webhook(request):
-    update = await request.json()
-    telegram_update = types.Update(**update)
-    await dp.process_update(telegram_update)
-    return web.Response(text="OK")
-
+    update = types.Update(**await request.json())
+    await dp.process_update(update)
+    return web.Response()
 
 # ====== СЕРВЕР ======
 app = web.Application()
