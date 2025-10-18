@@ -1,21 +1,20 @@
 import logging
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
-import os
+from aiohttp import web
+import asyncio
 
 # ====== НАСТРОЙКИ ======
 TOKEN = "8413313287:AAF1KLyKH7hl7W9gkokqWeE5RpCQQw0eZy8"
-CHANNEL_USERNAME = "@nutritionpro"  # например: @mychannel
-CONSULT_LINK = "https://t.me/nutri_wayne"  # например: https://t.me/yourusername
+CHANNEL_USERNAME = "@nutritionpro"  # твой канал
+CONSULT_LINK = "https://t.me/nutri_wayne"  # ссылка для записи
 
-# ====== ЛОГИРОВАНИЕ ======
+# ====== ЛОГИ ======
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=TOKEN, parse_mode="HTML")
 dp = Dispatcher(bot)
 
 # ====== КЛАВИАТУРЫ ======
-
-# Главное меню (после проверки)
 main_keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
 main_keyboard.row(
     KeyboardButton("📘5 простых шагов к стройности"),
@@ -55,19 +54,19 @@ async def check_subscription(callback_query: types.CallbackQuery):
     except Exception:
         await callback_query.answer("Не удалось проверить подписку. Убедитесь, что канал публичный.", show_alert=True)
 
-# ====== ОБРАБОТЧИКИ КНОПОК С ФАЙЛАМИ ======
+# ====== ОБРАБОТЧИКИ ФАЙЛОВ ======
 @dp.message_handler(lambda message: message.text == "📘5 простых шагов к стройности")
-async def send_5 простых шагов к стройности(message: types.Message):
+async def send_steps(message: types.Message):
     with open("files/5 простых шагов к стройности.pdf", "rb") as f:
         await message.answer_document(f, caption="📘Вот ваш файл!")
 
-@dp.message_handler(lambda message: message.text == "📗Белковая шпаргалка")
-async def send_Белковая шпаргалка(message: types.Message):
+@dp.message_handler(lambda message: message.text == "📗Белковая шпаргалка - продукты, нормы, симптомы дефицита")
+async def send_protein(message: types.Message):
     with open("files/Белковая шпаргалка.pdf", "rb") as f:
         await message.answer_document(f, caption="📗Вот ваш файл!")
 
 @dp.message_handler(lambda message: message.text == "📕Питание для здоровой, чистой и сияющей кожи")
-async def send_Питание для здоровой, чистой и сияющей кожи(message: types.Message):
+async def send_skin(message: types.Message):
     with open("files/Питание для здоровой, чистой и сияющей кожи.pdf", "rb") as f:
         await message.answer_document(f, caption="📕Вот ваш файл!")
 
@@ -79,12 +78,7 @@ async def consultation_handler(message: types.Message):
         disable_web_page_preview=True
     )
 
-# ====== ЗАПУСК ======
-if __name__ == "__main__":
-    print("Бот запущен...")
-from aiohttp import web
-import asyncio
-
+# ====== FAKE SERVER ДЛЯ RENDER ======
 async def run_fake_server():
     app = web.Application()
     app.router.add_get('/', lambda request: web.Response(text="Bot is running"))
@@ -93,5 +87,6 @@ async def run_fake_server():
     site = web.TCPSite(runner, '0.0.0.0', 10000)
     await site.start()
 
-asyncio.get_event_loop().create_task(run_fake_server())
+if __name__ == "__main__":
+    asyncio.get_event_loop().create_task(run_fake_server())
     executor.start_polling(dp, skip_updates=True)
