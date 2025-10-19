@@ -8,8 +8,9 @@ from aiohttp import web
 TOKEN = "8413313287:AAF1KLyKH7hl7W9gkokqWeE5RpCQQw0eZy8"
 CHANNEL_USERNAME = "@nutritionpro"
 CONSULT_LINK = "https://t.me/nutri_wayne"
+
 WEBHOOK_PATH = f"/webhook/{TOKEN}"
-WEBHOOK_URL = f"https://telegram-bot-9mod.onrender.com{WEBHOOK_PATH}"
+WEBHOOK_URL = f"https://telegram-bot-9mod.onrender.com{WEBHOOK_PATH}"  # ← адрес Render
 
 # ====== ЛОГИ ======
 logging.basicConfig(level=logging.INFO)
@@ -45,7 +46,7 @@ async def check_subscription(callback_query: types.CallbackQuery):
             await callback_query.answer("Вы ещё не подписались 😔", show_alert=True)
     except Exception as e:
         logging.error(e)
-        await callback_query.answer("Не удалось проверить подписку. Убедитесь, что канал публичный.", show_alert=True)
+        await callback_query.answer("Не удалось проверить подписку. Проверьте, что канал публичный.", show_alert=True)
 
 # ====== КНОПКИ С ФАЙЛАМИ ======
 async def send_file_buttons(chat_id):
@@ -53,7 +54,7 @@ async def send_file_buttons(chat_id):
     markup.add(
         InlineKeyboardButton("📘 5 простых шагов к стройности", callback_data="file_steps"),
         InlineKeyboardButton("📗 Белковая шпаргалка", callback_data="file_protein"),
-        InlineKeyboardButton("📕 Питание для здоровой кожи", callback_data="file_skin"),
+        InlineKeyboardButton("📕 Питание для здоровой, чистой и сияющей кожи", callback_data="file_skin"),
         InlineKeyboardButton("💬 Записаться на консультацию", url=CONSULT_LINK)
     )
     await bot.send_message(chat_id, "👇 Выберите материал:", reply_markup=markup)
@@ -80,19 +81,7 @@ async def send_file(callback_query: types.CallbackQuery):
         logging.error(f"Ошибка при отправке файла: {e}")
         await callback_query.answer("Ошибка при отправке файла 😢", show_alert=True)
 
-# ====== WEBHOOK ======
-async def on_startup(app):
-    logging.warning("Устанавливаем вебхук...")
-    await bot.set_webhook(WEBHOOK_URL)
-    logging.info(f"Webhook установлен: {WEBHOOK_URL}")
-
-async def on_shutdown(app):
-    logging.warning("Выключаем вебхук...")
-    await bot.delete_webhook()
-    await bot.session.close()
-    logging.info("Вебхук удалён. Бот остановлен.")
-
-# ====== ОБРАБОТЧИК ВЕБХУКА ======
+# ====== ОБРАБОТКА WEBHOOK ======
 async def handle_webhook(request):
     Bot.set_current(bot)
     Dispatcher.set_current(dp)
@@ -100,10 +89,22 @@ async def handle_webhook(request):
     await dp.process_update(update)
     return web.Response()
 
+# ====== ХУКИ НА ЗАПУСК/ОСТАНОВ ======
+async def on_startup(app):
+    logging.warning("Устанавливаем вебхук...")
+    await bot.set_webhook(WEBHOOK_URL)
+    logging.info(f"Webhook установлен: {WEBHOOK_URL}")
+
+async def on_shutdown(app):
+    logging.warning("Удаляем вебхук и закрываем сессию...")
+    await bot.delete_webhook()
+    await bot.session.close()
+    logging.info("Бот остановлен.")
+
 # ====== СЕРВЕР ======
 app = web.Application()
 app.router.add_post(WEBHOOK_PATH, handle_webhook)
-app.router.add_get("/", lambda request: web.Response(text="Bot is running ✅"))
+app.router.add_get("/", lambda request: web.Response(text="🤖 Bot is running on Render ✅"))
 app.on_startup.append(on_startup)
 app.on_shutdown.append(on_shutdown)
 
